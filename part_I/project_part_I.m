@@ -32,8 +32,11 @@ s_hat = zeros(m,1); % estimate of source data
 s_hat_old = zeros(m,1); % previous estimate of source data
 % using your favorate data structure,
 % keep track of updated msgs inside the code and source graph
-o_code = []; 
-o_source = [];
+% first coordinate is the node index
+% second coordinate denotes a toggle between forward and backward
+% third coordinate represents the value of s_i
+o_source = ones(m,2,4); 
+o_code = [];
 
 % start BP
 l = 0;
@@ -89,6 +92,7 @@ while(1)
     %   M_to_source - msg passed from code to source graph
     %                 [size m x 4]
     %   o_source - struct of msgs in source graph that is being updated
+    %              [size m x 2 x 4]
     %   phi_source - doped node potentials 
     %                [size m x 4] (given by us)
     %   psi_source - the representative edge potential matrix 
@@ -100,7 +104,19 @@ while(1)
     %                   to be passed to code graph (all after msg update)
     %                   [size m x 4]
     %   o_source - struct of updated msgs in source graph
-
+    new_o_source = [];
+%     for i = 1:m
+%         %forward messages
+%         for k = 1:4
+%             message = 1;
+%             if i < m
+%                 message = 0;
+%                 for value = 1:4
+%                     message = message + phi_source(i,value)psi_source(
+%                 end
+%         end
+%             
+%     end
     
     % = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
     % [4] ALPHABET-TO-BIT CONVERSION FOR CODE GRAPH BP
