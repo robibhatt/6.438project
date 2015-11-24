@@ -70,6 +70,13 @@ while(1)
     % [2] BIT-TO-ALPHABET CONVERSION FOR SOURCE GRAPH BP
     % (no modification necessary)
     M_to_source = msgs_1to8_gray(M_from_code,1,m); % [size m x 4]
+    Mnew = [];
+    for i=1:m
+        for j = 1:4
+            Mnew(i, j) = M_to_source(1, i, j);
+        end
+    end
+    M_to_source = Mnew;
 
     % = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
     % [3] SOURCE GRAPH BP ITERATION
@@ -116,7 +123,19 @@ while(1)
     % output variable:
     %   s_hat - decoded solution using marginal mode
     %          [size m x 1]
-
+    % added a comment
+    for index = 1:m
+        max = 1;
+        value = phi_source(index,1)*M_from_source(index,1)*M_to_source(index,1);
+        for guess = 2:4
+            new_value = phi_source(index,guess)*M_from_source(index,guess)*M_to_source(index,guess);
+            if new_value > value
+                max = guess;
+                value = new_value;
+            end
+        end
+        s_hat(index) = max;
+    end
     % ************************************************************
     % ****** write your code here for computing error ************
     % ************************************************************
@@ -129,6 +148,13 @@ while(1)
     % output variable:
     %   errs - abs difference error
     %          [scalar variable]
+    errs = 0;
+    for index = 1:m
+        if s_hat(index) ~= s(index)
+            errs = errs + 1;
+        end
+    end
+    errs = errs / m;
     vector_error = [vector_error errs];
     fprintf(['... Error = ' num2str(errs) '\n']);
     % terminate if BP gradient doesn't change
