@@ -134,7 +134,7 @@ while(1)
                 value = new_value;
             end
         end
-        s_hat(index) = max;
+        s_hat(index) = max-1;
     end
     % ************************************************************
     % ****** write your code here for computing error ************
