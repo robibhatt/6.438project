@@ -70,14 +70,7 @@ while(1)
     % = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
     % [2] BIT-TO-ALPHABET CONVERSION FOR SOURCE GRAPH BP
     % (no modification necessary)
-    M_to_source = msgs_1to8_gray(M_from_code,1,m); % [size m x 4]
-    Mnew = [];
-    for i=1:m
-        for j = 1:4
-            Mnew(i, j) = M_to_source(1, i, j);
-        end
-    end
-    M_to_source = Mnew;
+    M_to_source = squeeze(msgs_1to8_gray(M_from_code,1,m)); % [size m x 4]
 
     % = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
     % [3] SOURCE GRAPH BP ITERATION
