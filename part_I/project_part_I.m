@@ -112,7 +112,7 @@ while(1)
                     message = message + phi_source(from_node, from_value)*psi_source(from_value, to_value)*M_to_source(from_node, from_value);
                 end
                 new_o_source(from_node, 1, to_value) = message;
-            elseif from_node < n
+            elseif from_node < m
                 message = 0;
                 for from_value = 1:4
                     message = message + phi_source(from_node, from_value)*psi_source(from_value, to_value)*o_source(from_node - 1, 1, from_value)*M_to_source(from_node, from_value);
@@ -120,7 +120,7 @@ while(1)
                 new_o_source(from_node, 1, to_value) = message;
             end
             % backward messages
-            if from_node == n
+            if from_node == m
                 message = 0;
                 for from_value = 1:4
                     message = message + phi_source(from_node, from_value)*psi_source(to_value, from_value)*M_to_source(from_node, from_value);
@@ -135,19 +135,44 @@ while(1)
             end  
         end
         % normalization
-        for from_node = 1:m
-            for direction = 1:2
-                total_message = 0;
-                for from_value = 1:4
-                    total_message = total_message + new_o_source(from_node, direction, from_value);
-                end
-                for from_value = 1:4
-                    new_o_source(from_node, direction, from_value) = new_o_source(from_node, direction, from_value) / total_message;
-                end
+        for direction = 1:2
+            total_message = 0;
+            for to_value = 1:4
+                total_message = total_message + new_o_source(from_node, direction, to_value);
+            end
+            for to_value = 1:4
+                new_o_source(from_node, direction, to_value) = new_o_source(from_node, direction, to_value) / total_message;
             end
         end
     end
-    
+    % sets M_from_source
+    for node = 1:m
+        for value = 1:4
+            if node == 1
+                M_from_source(node, value) = o_source(node + 1, 2, value);
+            elseif node < m
+                M_from_source(node, value) = o_source(node - 1, 1, value)*o_source(node + 1, 2, value);
+            else
+                M_from_source(node, value) = o_source(node-1, 1, value);
+            end
+        end
+        % normalization
+        total_message = 0;
+        for value = 1:4
+            total_message = total_message + M_from_source(node, value);
+        end
+        for value = 1:4
+            M_from_source(node, value) = M_from_source(node,value) / total_message;
+        end
+    end
+    % sets o_source
+    for node = 1:m
+        for direction = 1:2
+            for value = 1:4
+                o_source(node, direction, value) = new_o_source(node, direction, value);
+            end
+        end
+    end
     % = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
     % [4] ALPHABET-TO-BIT CONVERSION FOR CODE GRAPH BP
     % (no modification necessary)
