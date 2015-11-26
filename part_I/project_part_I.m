@@ -30,11 +30,9 @@ M_to_code = ones(n,2); % M_from_source after alphabet-to-bit converstion to ente
 vector_error = []; % a vector storing error for every ite
 s_hat = zeros(m,1); % estimate of source data
 s_hat_old = zeros(m,1); % previous estimate of source data
-% using your favorate data structure,
-% keep track of updated msgs inside the code and source graph
-% first coordinate is the node index
-% second coordinate denotes a toggle between forward and backward
-% third coordinate represents the value of s_i
+% o_source(source_node, direction, value) = 
+% message from source_node to source_node+1 (or -1) depending on direction
+% evaluated with value
 o_source = ones(m,2,4); 
 o_code = [];
 
@@ -104,19 +102,51 @@ while(1)
     %                   to be passed to code graph (all after msg update)
     %                   [size m x 4]
     %   o_source - struct of updated msgs in source graph
-    new_o_source = [];
-%     for i = 1:m
-%         %forward messages
-%         for k = 1:4
-%             message = 1;
-%             if i < m
-%                 message = 0;
-%                 for value = 1:4
-%                     message = message + phi_source(i,value)psi_source(
-%                 end
-%         end
-%             
-%     end
+    new_o_source = ones(m,2,4);
+    for from_node = 1:m
+        for to_value = 1:4 %1 to 4 map to 0 to 3 because matlab is annoying
+            % forward messages
+            if from_node == 1
+                message = 0;
+                for from_value = 1:4
+                    message = message + phi_source(from_node, from_value)*psi_source(from_value, to_value)*M_to_source(from_node, from_value);
+                end
+                new_o_source(from_node, 1, to_value) = message;
+            elseif from_node < n
+                message = 0;
+                for from_value = 1:4
+                    message = message + phi_source(from_node, from_value)*psi_source(from_value, to_value)*o_source(from_node - 1, 1, from_value)*M_to_source(from_node, from_value);
+                end
+                new_o_source(from_node, 1, to_value) = message;
+            end
+            % backward messages
+            if from_node == n
+                message = 0;
+                for from_value = 1:4
+                    message = message + phi_source(from_node, from_value)*psi_source(to_value, from_value)*M_to_source(from_node, from_value);
+                end
+                new_o_source(from_node, 2, to_value) = message;
+            elseif from_node > 1
+                message = 0;
+                for from_value = 1:4
+                    message = message + phi_source(from_node, from_value)*psi_source(to_value, from_value)*o_source(from_node + 1, 2, from_value)*M_to_source(from_node, from_value);
+                end
+                new_o_source(from_node, 2, to_value) = message;
+            end  
+        end
+        % normalization
+        for from_node = 1:m
+            for direction = 1:2
+                total_message = 0;
+                for from_value = 1:4
+                    total_message = total_message + new_o_source(from_node, direction, from_value);
+                end
+                for from_value = 1:4
+                    new_o_source(from_node, direction, from_value) = new_o_source(from_node, direction, from_value) / total_message;
+                end
+            end
+        end
+    end
     
     % = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
     % [4] ALPHABET-TO-BIT CONVERSION FOR CODE GRAPH BP
