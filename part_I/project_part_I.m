@@ -30,11 +30,14 @@ M_to_code = ones(n,2); % M_from_source after alphabet-to-bit converstion to ente
 vector_error = []; % a vector storing error for every ite
 s_hat = zeros(m,1); % estimate of source data
 s_hat_old = zeros(m,1); % previous estimate of source data
-% o_source(source_node, direction, value) = 
-% message from source_node to source_node+1 (or -1) depending on direction
-% evaluated with value
-o_source = ones(m,2,4); 
-o_code = [];
+% o_source(from_node, direction, to_value) = 
+% message from from_node to from+1 if direction = 1, from - 1 if direction
+% = 2
+% evaluated with value to_value
+o_source = ones(m,2,4)/4;
+% o_code(factor, node, direction) = 
+% log message from factor to node if direction = 1, node to factor else
+o_code = zeros(k, n, 2);
 
 % start BP
 l = 0;
@@ -66,6 +69,33 @@ while(1)
     %                 [size n x 2] (convert the LLR message to standard
     %                 message)
     %   o_code - struct of updated msgs in code graph
+    new_o_code = ones(k, n, 2)/2;
+    log_phi_code = zeros(n,1);
+    for node = 1:n
+        log_phi_code(node,1) = log(phi_code(node, 1)) - log(phi_code(node,2));
+    end
+    for factor = 1:k
+        for node = 1:n
+            if H(factor, node) == 1
+                % node to factor message
+                node_to_factor_message = log_phi_code(node,1);
+                for other_factor = 1:k
+                    if and(H(other_factor, node) == 1, other_factor ~= factor)
+                        node_to_factor_message = node_to_factor_message + o_code(other_factor, node, 1);
+                    end
+                end
+                new_o_code(factor, node, 2) = node_to_factor_message;
+                % factor to node message
+                pre_tanh_factor_to_node_message = 1;
+                for other_node = 1:n
+                    if and(H(factor, other_node) == 1, other_node ~= node)
+                        pre_tanh_factor_to_node_message = pre_tanh_factor_to_node_message * tanh(o_code(factor, other_node, 2)/2);
+                    end
+                end
+                new_o_code(factor, node, 1) = 2 * atanh(pre_tanh_factor_to_node_message);
+            end
+        end
+    end
     
     % = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
     % [2] BIT-TO-ALPHABET CONVERSION FOR SOURCE GRAPH BP
