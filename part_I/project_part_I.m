@@ -38,6 +38,7 @@ o_source = ones(m,2,4)/4;
 % o_code(factor, node, direction) = 
 % log message from factor to node if direction = 1, node to factor else
 o_code = zeros(k, n, 2);
+% construct usable representation of the graph.
 
 % start BP
 l = 0;
@@ -69,34 +70,54 @@ while(1)
     %                 [size n x 2] (convert the LLR message to standard
     %                 message)
     %   o_code - struct of updated msgs in code graph
-    new_o_code = ones(k, n, 2)/2;
-    log_phi_code = zeros(n,1);
-    for node = 1:n
-        log_phi_code(node,1) = log(phi_code(node, 1)) - log(phi_code(node,2));
-    end
-    for factor = 1:k
-        for node = 1:n
-            if H(factor, node) == 1
-                % node to factor message
-                node_to_factor_message = log_phi_code(node,1);
-                for other_factor = 1:k
-                    if and(H(other_factor, node) == 1, other_factor ~= factor)
-                        node_to_factor_message = node_to_factor_message + o_code(other_factor, node, 1);
-                    end
-                end
-                new_o_code(factor, node, 2) = node_to_factor_message;
-                % factor to node message
-                pre_tanh_factor_to_node_message = 1;
-                for other_node = 1:n
-                    if and(H(factor, other_node) == 1, other_node ~= node)
-                        pre_tanh_factor_to_node_message = pre_tanh_factor_to_node_message * tanh(o_code(factor, other_node, 2)/2);
-                    end
-                end
-                new_o_code(factor, node, 1) = 2 * atanh(pre_tanh_factor_to_node_message);
-            end
-        end
-    end
-    
+%     new_o_code = zeros(k, n, 2);
+%     % factor to node messages
+%     net_factor_messages = ones(k,1);
+%     for factor = 1:k
+%         num_zeros = 0;
+%         last_zero = 1;
+%         for node = 1:n
+%             if H(factor, node) == 1
+%                 if o_code(factor, node , 2) == 0
+%                     num_zeros = num_zeros + 1;
+%                     last_zero = node;
+%                 else
+%                     net_factor_messages(factor,1) = net_factor_messages(factor,1) * tanh(o_code(factor, node, 2)/2);
+%                 end
+%             end
+%         end
+%         for node = 1:n
+%             if H(factor, node) == 1
+%                 if num_zeros > 1
+%                     new_o_code(factor, node, 1) = 0;
+%                 elseif num_zeros == 1
+%                     if node == last_zero
+%                         new_o_code(factor, node, 1) = net_factor_messages(factor , 1);
+%                     else
+%                         new_o_code(factor, node, 1) = 0;
+%                     end
+%                 else     
+%                     pre_tanh_factor_to_node_message = net_factor_messages(factor,1) / tanh(o_code(factor, node, 2)/2);
+%                     new_o_code(factor, node, 1) = 2 * atanh(pre_tanh_factor_to_node_message);
+%                 end
+%             end
+%         end
+%     end
+%     % node to factor messages
+%     net_node_messages = zeros(n,1);
+%     for node = 1:n
+%         net_node_messages(node, 1) = log(phi_code(node, 1)) - log(phi_code(node,2));
+%         for factor = 1:k
+%             if H(factor, node) == 1
+%                 net_node_messages(node, 1) = net_node_messages(node,1) + o_code(factor, node, 1);
+%             end
+%         end
+%         for factor = 1:k
+%             if H(factor, node) == 1
+%                 new_o_code(factor, node, 2) = net_node_messages(node,1) - o_code(factor, node, 1);
+%             end
+%         end
+%     end
     % = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
     % [2] BIT-TO-ALPHABET CONVERSION FOR SOURCE GRAPH BP
     % (no modification necessary)
