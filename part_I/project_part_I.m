@@ -6,7 +6,7 @@
 clc; close all; clear;
 
 %
-compressed_file_name = 'mcoli_rate_high'; % compressed file name (can modify)
+compressed_file_name = 'mcoli_rate_low'; % compressed file name (can modify)
 %   - mcoli_rate_high
 %   - mcoli_rate_moderate
 %   - mcoli_rate_low
@@ -38,18 +38,15 @@ o_source = ones(m,2,4)/4;
 % o_code(factor, node, direction) = 
 % log message from factor to node if direction = 1, node to factor else
 o_code = zeros(k, n, 2);
-% create log potentials
-log_phi_code = zeros(n,1);
-for node = 1:n
-    log_phi_code(node, 1) = log(phi_code(node, 1)) - log(phi_code(node,2));
-end
 H = full(H);
 % construct usable representation of the code graph.
 % factor_struct = {};
 % node_struct = {};
 % start BP
 l = 0;
-while(1)
+num_iterations = 0;
+while(num_iterations < 101)
+    num_iterations = num_iterations + 1;
     l = l+1;
     errs = 0;
     fprintf(['Ite num = ' num2str(l) '\n']); % print iteration number
@@ -77,14 +74,28 @@ while(1)
     %                 [size n x 2] (convert the LLR message to standard
     %                 message)
     %   o_code - struct of updated msgs in code graph
+    new_phi_code = zeros(n,2);
+    for node = 1:n
+        for value = 1:2
+            if phi_code(node, value) == 1
+                new_phi_code(node, value) = 0.5;
+            elseif phi_code(node, value) == 0
+                new_phi_code(node, value) = 0.5;
+            else
+                new_phi_code(node, value) = 0.5;
+            end
+        end
+    end
     new_o_code = zeros(k, n, 2);
     % factor to node messages
     net_factor_messages = ones(k,1);
     for factor = 1:k
         num_zeros = 0;
         last_zero = 1;
+        total_count = 0;
         for node = 1:n
             if H(factor, node) == 1
+                total_count = total_count + 1;
                 if o_code(factor, node , 2) == 0
                     num_zeros = num_zeros + 1;
                     last_zero = node;
@@ -103,9 +114,12 @@ while(1)
                     else
                         new_o_code(factor, node, 1) = 0;
                     end
-                else     
+                else
                     pre_tanh_factor_to_node_message = net_factor_messages(factor,1) / tanh(o_code(factor, node, 2)/2);
                     new_o_code(factor, node, 1) = 2 * atanh(pre_tanh_factor_to_node_message);
+                end
+                if x(factor,1) == 1
+                    new_o_code(factor, node, 1) = -1 * new_o_code(factor, node, 1);
                 end
             end
         end
@@ -113,18 +127,51 @@ while(1)
     % node to factor messages
     net_node_messages = zeros(n,1);
     for node = 1:n
-        net_node_messages(node, 1) = log_phi_code(node, 1);
-        for factor = 1:k
-            if H(factor, node) == 1
-                net_node_messages(node, 1) = net_node_messages(node,1) + o_code(factor, node, 1);
+        net_node_messages(node, 1) = log(new_phi_code(node, 1)) - log(new_phi_code(node,2));
+        if net_node_messages(node, 1) == Inf
+            for factor = 1:k
+                if H(factor, node) == 1
+                    new_o_code(factor, node, 2) = Inf;
+                end
             end
-        end
-        for factor = 1:k
-            if H(factor, node) == 1
-                new_o_code(factor, node, 2) = net_node_messages(node,1) - o_code(factor, node, 1);
+        elseif net_node_messages(node, 1) == -Inf
+            for factor = 1:k
+                if H(factor, node) == 1
+                    new_o_code(factor, node, 2) = -Inf;
+                end
+            end
+        else
+            for factor = 1:k
+                if H(factor, node) == 1
+                    net_node_messages(node, 1) = net_node_messages(node,1) + o_code(factor, node, 1);
+                end
+            end
+            for factor = 1:k
+                if H(factor, node) == 1
+                    new_o_code(factor, node, 2) = net_node_messages(node,1) - o_code(factor, node, 1);
+                    new_o_code(factor, node, 2) = new_o_code(factor, node ,2) + log(M_to_code(node,1)) - log(M_to_code(node, 2));
+                end
             end
         end
     end
+    % M_from_code messages
+    for node = 1:n
+        zero_message = 1;
+        one_message = 1;
+        for factor = 1:k
+            if H(factor, node) == 1
+                ratio = exp(new_o_code(factor, node, 1));
+                one_ratio = 1/(ratio + 1);
+                zero_ratio = 1 - one_ratio;
+                zero_message = zero_message * zero_ratio;
+                one_message = one_message * one_ratio;
+            end
+        end
+        total_message = zero_message + one_message;
+        M_from_code(node, 1) = zero_message / total_message;
+        M_from_code(node, 2) = one_message / total_message;
+    end
+    o_code = new_o_code;
     % = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
     % [2] BIT-TO-ALPHABET CONVERSION FOR SOURCE GRAPH BP
     % (no modification necessary)
@@ -200,11 +247,11 @@ while(1)
     for node = 1:m
         for value = 1:4
             if node == 1
-                M_from_source(node, value) = o_source(node + 1, 2, value);
+                M_from_source(node, value) = new_o_source(node + 1, 2, value);
             elseif node < m
-                M_from_source(node, value) = o_source(node - 1, 1, value)*o_source(node + 1, 2, value);
+                M_from_source(node, value) = new_o_source(node - 1, 1, value)*o_source(node + 1, 2, value);
             else
-                M_from_source(node, value) = o_source(node-1, 1, value);
+                M_from_source(node, value) = new_o_source(node-1, 1, value);
             end
         end
         % normalization
@@ -217,13 +264,7 @@ while(1)
         end
     end
     % sets o_source
-    for node = 1:m
-        for direction = 1:2
-            for value = 1:4
-                o_source(node, direction, value) = new_o_source(node, direction, value);
-            end
-        end
-    end
+    o_source = new_o_source;
     % = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
     % [4] ALPHABET-TO-BIT CONVERSION FOR CODE GRAPH BP
     % (no modification necessary)
@@ -280,9 +321,9 @@ while(1)
     vector_error = [vector_error errs];
     fprintf(['... Error = ' num2str(errs) '\n']);
     % terminate if BP gradient doesn't change
-    if(l>1 && sum(abs(s_hat - s_hat_old))<0.5)
-        break;  % exit BP loop
-    end
+%     if(l>1 && sum(abs(s_hat - s_hat_old))<0.5)
+%         break;  % exit BP loop
+%     end
     s_hat_old = s_hat; % update solution
 end
 
@@ -291,7 +332,8 @@ end
 % ****** write your code here for plotting vector_error vs. l (iteration) ******
 % ******************************************************************************
 
-
+plot(vector_error);
+axis([0,100,0,1]);
 % note: if vector_error converges to 0 exactly, 
 %       then you have sucessfully achieved lossless compression 
 
