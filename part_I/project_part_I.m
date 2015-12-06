@@ -78,11 +78,11 @@ while(num_iterations < 101)
     for node = 1:n
         for value = 1:2
             if phi_code(node, value) == 1
-                new_phi_code(node, value) = 0.5;
+                new_phi_code(node, value) = 1;
             elseif phi_code(node, value) == 0
-                new_phi_code(node, value) = 0.5;
+                new_phi_code(node, value) = 0;
             else
-                new_phi_code(node, value) = 0.5;
+                new_phi_code(node, value) = phi_code(node, value);
             end
         end
     end
@@ -92,10 +92,8 @@ while(num_iterations < 101)
     for factor = 1:k
         num_zeros = 0;
         last_zero = 1;
-        total_count = 0;
         for node = 1:n
             if H(factor, node) == 1
-                total_count = total_count + 1;
                 if o_code(factor, node , 2) == 0
                     num_zeros = num_zeros + 1;
                     last_zero = node;
@@ -110,18 +108,21 @@ while(num_iterations < 101)
                     new_o_code(factor, node, 1) = 0;
                 elseif num_zeros == 1
                     if node == last_zero
-                        new_o_code(factor, node, 1) = net_factor_messages(factor , 1);
+                        new_o_code(factor, node, 1) = 2 * atanh(net_factor_messages(factor , 1));
+                        %assert(~isnan(new_o_code(factor, node, 1)));
                     else
                         new_o_code(factor, node, 1) = 0;
                     end
                 else
                     pre_tanh_factor_to_node_message = net_factor_messages(factor,1) / tanh(o_code(factor, node, 2)/2);
                     new_o_code(factor, node, 1) = 2 * atanh(pre_tanh_factor_to_node_message);
+                    %assert(~isnan(new_o_code(factor, node, 1)));
                 end
                 if x(factor,1) == 1
                     new_o_code(factor, node, 1) = -1 * new_o_code(factor, node, 1);
                 end
             end
+            %assert(~isnan(new_o_code(factor, node, 1)));
         end
     end
     % node to factor messages
@@ -132,24 +133,50 @@ while(num_iterations < 101)
             for factor = 1:k
                 if H(factor, node) == 1
                     new_o_code(factor, node, 2) = Inf;
+                    %assert(~isnan(new_o_code(factor, node, 2)));
                 end
             end
         elseif net_node_messages(node, 1) == -Inf
             for factor = 1:k
                 if H(factor, node) == 1
                     new_o_code(factor, node, 2) = -Inf;
+                    %assert(~isnan(new_o_code(factor, node, 2)));
                 end
             end
         else
+            has_infinity = 0;
+            infinity_index = 0;
+            infinity_power = 0;
             for factor = 1:k
                 if H(factor, node) == 1
-                    net_node_messages(node, 1) = net_node_messages(node,1) + o_code(factor, node, 1);
+                    if isfinite(o_code(factor, node , 1))
+                        net_node_messages(node, 1) = net_node_messages(node,1) + o_code(factor, node, 1);
+                    else
+                        infinity_index = factor;
+                        infinity_power = o_code(factor, node, 1);
+                        has_infinity = has_infinity + 1;
+                    end
                 end
             end
-            for factor = 1:k
-                if H(factor, node) == 1
-                    new_o_code(factor, node, 2) = net_node_messages(node,1) - o_code(factor, node, 1);
-                    new_o_code(factor, node, 2) = new_o_code(factor, node ,2) + log(M_to_code(node,1)) - log(M_to_code(node, 2));
+            if has_infinity > 0
+                for factor = 1:k
+                    if H(factor, node) == 1
+                        if factor == infinity_index
+                            new_o_code(factor, node, 2)= net_node_messages(node, 1);
+                        else
+                            new_o_code(factor, node ,2) = infinity_power;
+                        end
+                    end
+                end
+            else
+                for factor = 1:k
+                    if H(factor, node) == 1
+                        %assert(~(net_node_messages(node,1) == -Inf));
+                        new_o_code(factor, node, 2) = net_node_messages(node,1) - o_code(factor, node, 1);
+                        %assert(~isnan(new_o_code(factor, node, 2)));
+                        new_o_code(factor, node, 2) = new_o_code(factor, node ,2) + log(M_to_code(node,1)) - log(M_to_code(node, 2));
+                        %assert(~isnan(new_o_code(factor, node, 2)));
+                    end
                 end
             end
         end
@@ -321,9 +348,9 @@ while(num_iterations < 101)
     vector_error = [vector_error errs];
     fprintf(['... Error = ' num2str(errs) '\n']);
     % terminate if BP gradient doesn't change
-%     if(l>1 && sum(abs(s_hat - s_hat_old))<0.5)
-%         break;  % exit BP loop
-%     end
+    if(l>1 && sum(abs(s_hat - s_hat_old))<0.5)
+        break;  % exit BP loop
+    end
     s_hat_old = s_hat; % update solution
 end
 
@@ -332,8 +359,8 @@ end
 % ****** write your code here for plotting vector_error vs. l (iteration) ******
 % ******************************************************************************
 
-plot(vector_error);
-axis([0,100,0,1]);
+% plot(vector_error);
+% axis([0,100,0,1]);
 % note: if vector_error converges to 0 exactly, 
 %       then you have sucessfully achieved lossless compression 
 
