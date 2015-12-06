@@ -17,7 +17,7 @@ deg_min_shotgun = 1; % min degree of overlap of a read with its adjacent one
 noise_shotgun = 0.01; % noise level of shotgun reads
 
 % # parameters for compression
-r = 0.6; % coding rate (= k/n)
+r = 0.5; % coding rate (= k/n)
 
 
 % / / / / / / / / / / / / / / / /
