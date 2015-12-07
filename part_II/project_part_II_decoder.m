@@ -13,6 +13,7 @@ function [s_hat] = project_part_II_decoder(...
 
 % = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
 % Implement your decoder (going from x to s_hat) here
+shotgun_length = temp(1,1);
 s_hat = zeros(size(H,2)/2,1); % output decoded solution as column vector
 m = length(s_hat);
 [k,n] = size(H);
@@ -24,6 +25,7 @@ M_from_source = ones(m,4); % msgs coming out of source graph
 M_to_code = ones(n,2); % M_from_source after alphabet-to-bit converstion to enter code graph
 vector_error = []; % a vector storing error for every ite
 s_hat = zeros(m,1); % estimate of source data
+confidence_hat = zeros(m,1);
 s_hat_old = zeros(m,1); % previous estimate of source data
 % o_source(from_node, direction, to_value) = 
 % message from from_node to from+1 if direction = 1, from - 1 if direction
@@ -36,11 +38,11 @@ o_code = zeros(k, n, 2);
 H = full(H);
 l = 0;
 num_iterations = 0;
-while(num_iterations < 200)
+while(num_iterations < 300)
     num_iterations = num_iterations + 1;
     l = l+1;
     errs = 0;
-    fprintf(['Ite num = ' num2str(l) '\n']); % print iteration number
+    %fprintf(['Ite num = ' num2str(l) '\n']); % print iteration number
     
     % = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
     % [1] CODE GRAPH BP ITERATION
@@ -65,18 +67,6 @@ while(num_iterations < 200)
     %                 [size n x 2] (convert the LLR message to standard
     %                 message)
     %   o_code - struct of updated msgs in code graph
-    new_phi_code = zeros(n,2);
-    for node = 1:n
-        for value = 1:2
-            if phi_code(node, value) == 1
-                new_phi_code(node, value) = 1;
-            elseif phi_code(node, value) == 0
-                new_phi_code(node, value) = 0;
-            else
-                new_phi_code(node, value) = phi_code(node, value);
-            end
-        end
-    end
     new_o_code = zeros(k, n, 2);
     % factor to node messages
     net_factor_messages = ones(k,1);
@@ -119,7 +109,7 @@ while(num_iterations < 200)
     % node to factor messages
     net_node_messages = zeros(n,1);
     for node = 1:n
-        net_node_messages(node, 1) = log(new_phi_code(node, 1)) - log(new_phi_code(node,2));
+        net_node_messages(node, 1) = log(phi_code(node, 1)) - log(phi_code(node,2));
         if net_node_messages(node, 1) == Inf
             for factor = 1:k
                 if H(factor, node) == 1
@@ -230,8 +220,12 @@ while(num_iterations < 200)
                 new_o_source(from_node, 1, to_value) = message;
             elseif from_node < m
                 message = 0;
-                for from_value = 1:4
-                    message = message + phi_source(from_node, from_value)*psi_source(from_value, to_value)*o_source(from_node - 1, 1, from_value)*M_to_source(from_node, from_value);
+                if rem(from_node, shotgun_length) == 0
+                    message = 1;
+                else
+                    for from_value = 1:4
+                        message = message + phi_source(from_node, from_value)*psi_source(from_value, to_value)*o_source(from_node - 1, 1, from_value)*M_to_source(from_node, from_value);
+                    end
                 end
                 new_o_source(from_node, 1, to_value) = message;
             end
@@ -244,8 +238,12 @@ while(num_iterations < 200)
                 new_o_source(from_node, 2, to_value) = message;
             elseif from_node > 1
                 message = 0;
-                for from_value = 1:4
-                    message = message + phi_source(from_node, from_value)*psi_source(to_value, from_value)*o_source(from_node + 1, 2, from_value)*M_to_source(from_node, from_value);
+                if rem(from_node, shotgun_length) == 1
+                    message = 1;
+                else
+                    for from_value = 1:4
+                        message = message + phi_source(from_node, from_value)*psi_source(to_value, from_value)*o_source(from_node + 1, 2, from_value)*M_to_source(from_node, from_value);
+                    end
                 end
                 new_o_source(from_node, 2, to_value) = message;
             end  
@@ -308,14 +306,17 @@ while(num_iterations < 200)
     for index = 1:m
         max = 1;
         value = phi_source(index,1)*M_from_source(index,1)*M_to_source(index,1);
+        total_value = value;
         for guess = 2:4
             new_value = phi_source(index,guess)*M_from_source(index,guess)*M_to_source(index,guess);
+            total_value = total_value + new_value;
             if new_value > value
                 max = guess;
                 value = new_value;
             end
         end
         s_hat(index) = max-1;
+        confidence_hat(index) = value / total_value;
     end
     % ************************************************************
     % ****** write your code here for computing error ************
@@ -337,14 +338,14 @@ while(num_iterations < 200)
 %     end
 %     errs = errs / m;
 %     vector_error = [vector_error errs];
-    fprintf(['... Error = ' 1 '\n']);
+    %fprintf(['... Error = ' 1 '\n']);
     % terminate if BP gradient doesn't change
     if(l>1 && sum(abs(s_hat - s_hat_old))<0.5)
         break;  % exit BP loop
     end
     s_hat_old = s_hat; % update solution
 end
-
+confidence_hat
 
 
 

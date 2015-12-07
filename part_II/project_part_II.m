@@ -22,9 +22,9 @@ addpath(genpath([pwd '/supplementary_functions_part_II'])); %
 %     in the final calculation of compression ratio. 
 %     Leave it empty if your decoder doesn't use this
 
-r_dope = 0.14; % some doping rate defined here 
+r_dope = max(0.6 - r, 0); % some doping rate defined here 
                 % (can depend on some variables in test_file)
-temp = [];
+temp = [l_shotgun];
 
 
 % / / / / / / / / / / / / / / / / / / / / / / / / /
